@@ -1,0 +1,11 @@
+```mermaid
+sequenceDiagram
+    participant browser
+    participant server
+    
+    browser->>server: POST https://studies.cs.helsinki.fi/exampleapp/new_note_spa
+    Note right of browser: The browser executes the callback when the submit button was pressed, which cause the new note to be added to the list and send a JSON file to the Server
+    activate server
+    server-->>browser: HTML document
+    deactivate server
+```
