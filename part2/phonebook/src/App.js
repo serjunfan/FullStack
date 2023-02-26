@@ -1,10 +1,19 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import phoneBookService from './services/phonebooks'
 
 const Display = (props) => {
   const person = props.props
-  const {name, phoneNum} = person
+  const {name, phoneNum, id, shouldRender} = person
+  const deleteHandler = name =>{
+    if(window.confirm(`Delete ${name} ?`))
+      phoneBookService.deletePerson(id)
+  }
   return(
-	  <p> {name} {phoneNum} </p>
+          <>
+	    {name} {phoneNum} <button 
+            onClick={() => deleteHandler(name)}>{`delete`}</button>
+            <br/>
+          </>
 	)
 }
 
@@ -46,14 +55,20 @@ const PersonForm = (props) => {
   )
 }
 const App = () => {
-  const [persons, setPersons] = useState([
-    { name: 'Arto Hellas' , phoneNum: '040-1234567'}
-  ]) 
+  const [persons, setPersons] = useState([]) 
   const [newName, setNewName] = useState('')
   const [newPhoneNum, setNewPhoneNum] = useState('')
   const [filterName, setFilterName] = useState('')
 
-  const addPersonAndPhoneNum = (event) =>{
+  useEffect(() =>{
+    phoneBookService 
+      .getAll()
+      .then(initialPersons => {
+	setPersons(initialPersons)
+      })
+  }, [persons])
+
+  const addPersonAndPhoneNum = event =>{
     event.preventDefault()
     persons.forEach(element => { 
       if(element.name === newName && element.phoneNum === newPhoneNum)
@@ -63,10 +78,14 @@ const App = () => {
       name: newName,
       phoneNum: newPhoneNum
     }
-
-    setPersons(persons.concat(newPerson))
-    setNewName('')
-    setNewPhoneNum('')
+    phoneBookService
+    .create(newPerson)
+    .then(newPerson =>{
+      console.log(newPerson)
+      setPersons(persons.concat(newPerson))
+      setNewName('')
+      setNewPhoneNum('')
+    })
   }
   const personsToShow = filterName === '' ? persons :
     persons.filter( person => person.name === filterName )
