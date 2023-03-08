@@ -1,136 +1,120 @@
 import { useState, useEffect } from 'react'
-import phoneBookService from './services/phonebooks'
 
-const Display = (props) => {
-  const {person, shouldReRender, setShouldReRender} = props
-  const {name, phoneNum, id} = person
-  const deleteHandler = name =>{
-    if(window.confirm(`Delete ${name} ?`))
-      phoneBookService.deletePerson(id)
-      .then(returnStatus => returnStatus === 200 ?
-	setShouldReRender(!shouldReRender) : console.log('sth wrong') 
-      )
-  }
-  return(
-          <>
-	    {name} {phoneNum} <button 
-            onClick={() => deleteHandler(name)}>{`delete`}</button>
-            <br/>
-          </>
-	)
-}
+import Persons from './components/Persons'
+import PersonForm from './components/PersonForm'
+import Filter from './components/Filter'
+import Notification from './components/Notification'
 
-const Filter = ({filterName, setFilterName}) => {
-  return(
-    <>
-      filter shown with: <input value={filterName} 
-	onChange={event => setFilterName(event.target.value)} />
-    </>
-  )
-}
-
-const Persons = ({personsToShow, shouldReRender, setShouldReRender}) => {
-  return(
-      <div>
-      {personsToShow.map(person =>
-	<Display key={person.name} person={person} 
-	shouldReRender={shouldReRender}
-	setShouldReRender={setShouldReRender}/>)
-      }
-      </div>
-  )
-}
-
-const PersonForm = (props) => {
-  const {addPersonAndPhoneNum, newName, setNewName, newPhoneNum,
-      setNewPhoneNum} = props
-  return(
-      <form onSubmit={addPersonAndPhoneNum}>
-        <div>
-          name: <input value={newName} 
-                onChange={event => setNewName(event.target.value)}/>
-          <br/>
-          number: <input value={newPhoneNum}
-                onChange={event => setNewPhoneNum(event.target.value)} />
-        </div>
-        <div>
-          <button type="submit">add</button>
-        </div>
-      </form>
-  )
-}
-const Notification = ({message}) =>{
-  const NotificationStyle = {
-    color: 'green',
-    background: 'lightgrey',
-    fontSize: '20px',
-    fontStyle: 'italic'
-  }
-  if(message === null){
-    return null
-  }
-
-  return(
-    <div style={NotificationStyle}>
-      {message}
-    </div>
-  )
-}
+import personService from './services/persons'
 
 const App = () => {
   const [persons, setPersons] = useState([]) 
-  const [shouldReRender, setShouldReRender] = useState(false)
   const [newName, setNewName] = useState('')
-  const [newPhoneNum, setNewPhoneNum] = useState('')
-  const [filterName, setFilterName] = useState('')
-  const [addMessage, setAddMessage] = useState('')
+  const [newNumber, setNewNumber] = useState('')
+  const [filter, setFilter] = useState('')
+  const [info, setInfo] = useState({ message: null})
 
-  useEffect(() =>{
-    phoneBookService 
-      .getAll()
-      .then(initialPersons => {
-	setPersons(initialPersons)
+  useEffect(() => {
+    personService.getAll().then((initialPersons => 
+      setPersons(initialPersons)
+    ))
+  }, [])
+
+  const notifyWith = (message, type='info') => {
+    setInfo({
+      message, type
+    })
+
+    setTimeout(() => {
+      setInfo({ message: null} )
+    }, 3000)
+  }
+
+  const cleanForm = () => {
+    setNewName('')
+    setNewNumber('') 
+  }
+
+  const updatePerson = (person) => {
+    const ok = window.confirm(`${newName} is already added to phonebook, replace the number?`)
+    if (ok) {
+      
+      personService.update(person.id, {...person, number: newNumber}).then((updatedPerson) => {
+        setPersons(persons.map(p => p.id !== person.id ? p :updatedPerson ))
+        notifyWith(`phon number of ${person.name} updated!`)
       })
-  }, [shouldReRender])
+      .catch(() => {
+        notifyWith(`${person.name} has already been removed`, 'error')
+        setPersons(persons.filter(p => p.id !== person.id))
+      })
 
-  const addPersonAndPhoneNum = event =>{
-    event.preventDefault()
-    persons.forEach(element => { 
-      if(element.name === newName && element.phoneNum === newPhoneNum)
-	alert(`${newName} & ${newPhoneNum} is already added to phonebook`)
-    }) 
-    const newPerson = {
-      name: newName,
-      phoneNum: newPhoneNum
+      cleanForm()
     }
-    phoneBookService
-    .create(newPerson)
-    .then(newPerson =>{
-      setAddMessage(`Added ${newName}`)
-      setTimeout(() => setAddMessage(null), 3000)
-      setPersons(persons.concat(newPerson))
-      setNewName('')
-      setNewPhoneNum('')
+  }
+
+  const addPerson = (event) => {
+    event.preventDefault()
+    const person = persons.find(p => p.name === newName)
+
+    if (person) {
+      updatePerson(person)
+      return
+    }
+
+    personService.create({
+      name: newName,
+      number: newNumber
+    }).then(createdPerson => {
+      setPersons(persons.concat(createdPerson))
+
+      notifyWith(`${createdPerson.name} added!`)
+
+      cleanForm()
     })
   }
-  const personsToShow = filterName === '' ? persons :
-    persons.filter( person => person.name === filterName )
+
+  const removePerson = (person) => {
+    const ok = window.confirm(`remove ${person.name} from phonebook?`)
+    if ( ok ) {
+      personService.remove(person.id).then( () => {
+        setPersons(persons.filter(p => p.id !== person.id))
+        notifyWith(`number of ${person.name} deleted!`)
+      })
+    }
+  }
+
+  const byFilterField =
+    p => p.name.toLowerCase().includes(filter.toLowerCase())
+
+  const personsToShow = filter ? persons.filter(byFilterField) : persons
 
   return (
     <div>
       <h2>Phonebook</h2>
-      <Notification message={addMessage} />
-      <Filter filterName={filterName} setFilterName={setFilterName} /> 
-      <PersonForm addPersonAndPhoneNum={addPersonAndPhoneNum} 
-      newName={newName} setNewName={setNewName} newPhoneNum={newPhoneNum}
-      setNewPhoneNum={setNewPhoneNum}
+
+      <Notification info={info} />
+
+      <Filter filter={filter} setFilter={setFilter} />
+      
+      <h3>Add a new</h3>
+
+      <PersonForm 
+        addPerson={addPerson}
+        newName={newName}
+        newNumber={newNumber}
+        setNewName={setNewName}
+        setNewNumber={setNewNumber}
       />
-      <h2>Numbers</h2>
-      <Persons personsToShow={personsToShow} 
-      shouldReRender={shouldReRender} setShouldReRender={setShouldReRender} 
+
+      <h3>Phone numbers</h3>
+
+      <Persons
+        persons={personsToShow}
+        removePerson={removePerson}
       />
     </div>
   )
+
 }
 
 export default App
