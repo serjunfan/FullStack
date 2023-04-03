@@ -3,6 +3,7 @@ const express = require('express')
 const cors = require('cors')
 const morgan = require('morgan')
 const Person = require('./models/person')
+const logger = require('./utils/logger')
 
 const app = express()
 
@@ -16,7 +17,7 @@ app.get('/info', (request, response) => {
   const reply = `<p>Phonebook has info for ${Person.length} 
   ${Person.length === 1 ? 'person' : 'people'} </p>
   <p> ${date} </p>`
-  console.log(date)
+  logger.info(date)
   response.send(reply)
 })
 
@@ -28,7 +29,7 @@ app.get('/api/persons', (request, response) => {
 
 app.get('/api/persons/:id', (request, response, next) => {
   Person.findById(request.params.id).then((person) => {
-    console.log(person)
+    logger.info(person)
     if (person) {
       response.json(person)
     } else {
@@ -61,7 +62,7 @@ app.post('/api/persons', (request, response, next) => {
 })
 
 const errorHandler = (error, request, response, next) => {
-  console.log(error)
+  logger.error(error)
   if (error.name === 'CastError') {
     return response.status(400).send({ error: 'malformatted id' })
   }
@@ -76,5 +77,5 @@ app.use(errorHandler)
 
 const { PORT } = process.env
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`)
+  logger.info(`Server running on port ${PORT}`)
 })
